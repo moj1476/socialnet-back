@@ -1,0 +1,75 @@
+services:
+  postgres:
+    profiles: ["full"]
+    image: postgres:18.1-alpine
+    container_name: socialnet_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-socialnet}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - socialnet-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: socialnet_redis
+    restart: always
+    ports:
+      - "32768:6379"
+    networks:
+      - socialnet-network
+
+  keycloak:
+    image: keycloak/keycloak:26.4
+    container_name: socialnet_keycloak
+    restart: always
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: ${KC_DB_URL}
+      KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+
+    ports:
+      - "8040:8080"
+    networks:
+      - socialnet-network
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: socialnet_livekit
+    restart: always
+    command: --config /config.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882"
+      - "50000-50050:50000-50050/udp"
+    volumes:
+      - ./livekit.yaml:/config.yaml
+    environment:
+      - "LIVEKIT_KEYS=${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    networks:
+      - socialnet-network
+
+networks:
+  socialnet-network:
+    external: true
+    name: socialnet-network

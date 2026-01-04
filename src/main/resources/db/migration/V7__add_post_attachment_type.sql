@@ -1,0 +1,1 @@
+ALTER TYPE post_attachment_type ADD VALUE 'TEXT';
